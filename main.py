@@ -97,6 +97,23 @@ async def spagheti(request: Request, background_task: BackgroundTasks):
             logging.error(e)
             raise e
 
+    def _end_conversation(conversation_id: str, user_id: str, conversation_token: str) -> None:
+        try:
+            headers = {"Authorization": f"Bearer {conversation_token}"}
+            body = {
+                "type": "endOfConversation",
+                "from": {
+                    "id": user_id
+                }
+            }
+            response = requests.post(f"{DIRECTLINE_URL}/directline/conversations/{conversation_id}/activities",
+                                     headers=headers, json=body, timeout=30)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            logging.error(e)
+            raise e
+
     def _send_fb_message(message: str, page_id: str, user_id: str, app_token: str) -> dict:
         try:
             headers = {"Content-Type": "application/json"}
@@ -124,6 +141,8 @@ async def spagheti(request: Request, background_task: BackgroundTasks):
 
         if last_activity["last_activity_type"] == "message" and last_activity["role"] == "bot":
             _send_fb_message(last_activity["bot_res"], page_id, user_id, FB_APP_TOKEN)
+
+        _end_conversation(conversation_id["conversation_id"], user_id, conversation_id["conversation_token"])
 
     req = await request.json()
     background_task.add_task(full_flow, req)
